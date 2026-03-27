@@ -5,4 +5,6 @@ export interface Announcement extends Document {
   title: string;
   subheading: string;
   shopify_session_id?: Types.ObjectId;
+  enabled: boolean;
+  page_display?: string[];
 }

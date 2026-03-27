@@ -6,6 +6,7 @@ import { AppError } from "../utils/app-error.js";
 import * as announcementService from "../services/announcement.js";
 import shopifySession from "../models/shopify-sessions.js";
 import mongoose from "mongoose";
+import { AnnouncementNotify } from "../models/announcement.js";
 
 // Get current shopify_session_id
 export const getCurrentShopifySessionId = asyncHandler(
@@ -41,8 +42,15 @@ export const getCurrentShopifySessionId = asyncHandler(
 // Create
 export const createAnnouncement = asyncHandler(
   async (req: Request, res: Response) => {
-    const { announcement_name, title, subheading, shopify_session_id } =
-      req.body;
+    const {
+      announcement_name,
+      title,
+      subheading,
+      shopify_session_id,
+      enabled,
+      page_display,
+    } = req.body;
+    console.log("req", req.body);
 
     if (!announcement_name || !title || !shopify_session_id) {
       throw new AppError(
@@ -56,6 +64,8 @@ export const createAnnouncement = asyncHandler(
       title,
       subheading,
       shopify_session_id,
+      enabled,
+      page_display,
     });
 
     if (!response) {
@@ -78,7 +88,8 @@ export const createAnnouncement = asyncHandler(
 export const updateAnnouncementData = asyncHandler(
   async (req: Request, res: Response) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { announcement_name, title, subheading } = req.body;
+    const { announcement_name, title, subheading, enabled, page_display } =
+      req.body;
 
     if (!announcement_name || !title) {
       throw new AppError(
@@ -94,6 +105,8 @@ export const updateAnnouncementData = asyncHandler(
       announcement_name: announcement_name,
       title: title,
       subheading: subheading,
+      enabled: enabled,
+      page_display: page_display,
     };
     const response = await announcementService.updateAnnouncement(id, payload);
 
@@ -124,16 +137,12 @@ export const listAnnouncement = asyncHandler(
     const sessionDoc = await mongoose.connection
       .collection("shopify_sessions")
       .findOne({ shop: shopDomain });
-    
-        console.log(
-          "Session found for all USP Bar 🔎",
-          sessionDoc ? "Yes" : "No",
-        );
 
-      if (!sessionDoc || !sessionDoc._id) {
-        throw new AppError("Session not found.", StatusCode.NOT_FOUND);
-      }
+    console.log("Session found for all USP Bar 🔎", sessionDoc ? "Yes" : "No");
 
+    if (!sessionDoc || !sessionDoc._id) {
+      throw new AppError("Session not found.", StatusCode.NOT_FOUND);
+    }
 
     const response = await announcementService.getAllAnnouncement({
       shopify_session_id: sessionDoc._id,
@@ -208,6 +217,180 @@ export const deleteAnnouncementData = asyncHandler(
   },
 );
 
+// Toggle enabled status
+export const toggleAnnouncement = asyncHandler(
+  async (req: Request, res: Response) => {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new AppError("Invalid id format.", StatusCode.BAD_REQUEST);
+    }
+
+    const response = await announcementService.toggleEnabled(id);
+
+    if (!response) {
+      throw new AppError("Announcement not found.", StatusCode.NOT_FOUND);
+    }
+
+    return res
+      .status(StatusCode.OK)
+      .json(
+        new ApiResponse(
+          true,
+          `Announcement ${response.enabled ? "enabled" : "disabled"} successfully.`,
+          response,
+        ),
+      );
+  },
+);
+
+// Duplicate data api
+export const duplicateAnnouncement = asyncHandler(
+  async (req: Request, res: Response) => {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new AppError("Invalid id format.", StatusCode.BAD_REQUEST);
+    }
+
+    const originalItem = await announcementService.getAnnouncementById(id);
+    if (!originalItem) {
+      throw new AppError("Announcement not found.", StatusCode.BAD_REQUEST);
+    }
+
+    // Convert this mongoose document to plain js object
+    const newItemData = originalItem.toObject();
+
+    // Get the shopify_session_id from the original item
+    if (!originalItem.shopify_session_id) {
+      throw new AppError(
+        "Shopify session ID not found.",
+        StatusCode.BAD_REQUEST,
+      );
+    }
+    const shopify_session_id = originalItem.shopify_session_id.toString();
+
+    // Limit check - block duplicates if already at 10 or more bars (for ALL users)
+    const count = await AnnouncementNotify.countDocuments({
+      shopify_session_id: new mongoose.Types.ObjectId(shopify_session_id),
+    });
+    console.log(
+      `🔍 Duplicate check: Current count is ${count} for session ${shopify_session_id}`,
+    );
+
+    if (count >= 10) {
+      console.log(
+        `🚫 BLOCKING duplicate creation - limit of 10 announcement reached (current: ${count})`,
+      );
+      throw new AppError(
+        "Limit of 10 announcement reached. You cannot create more than 10 announcement.",
+        StatusCode.FORBIDDEN,
+      );
+    }
+
+    // Remove the _id field to allow MongoDB to generate a new one
+    delete newItemData._id;
+    delete newItemData.__v;
+
+    // Modify other fields for the duplicate
+    newItemData.announcement_name = `Copy of ${newItemData.announcement_name}`;
+    newItemData.enabled = true;
+
+    // Create a new Mongoose model instance with the new data
+    const duplicatedItem = await AnnouncementNotify.create(newItemData);
+
+    return res
+      .status(StatusCode.CREATED)
+      .json(
+        new ApiResponse(
+          true,
+          "Announcement duplicated successfully.",
+          duplicatedItem,
+        ),
+      );
+  },
+);
+
+// Bulk delete USP bars
+export const bulkDeleteAnnouncement = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      throw new AppError(
+        "No IDs provided for deletion.",
+        StatusCode.BAD_REQUEST,
+      );
+    }
+
+    // Validate all IDs
+    const invalidIds = ids.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      throw new AppError(
+        `Invalid IDs: ${invalidIds.join(", ")}`,
+        StatusCode.BAD_REQUEST,
+      );
+    }
+
+    const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+    const result = await AnnouncementNotify.deleteMany({
+      _id: { $in: objectIds },
+    });
+
+    return res
+      .status(StatusCode.OK)
+      .json(
+        new ApiResponse(
+          true,
+          `${result.deletedCount} Announcement(s) deleted successfully.`,
+          { deletedCount: result.deletedCount },
+        ),
+      );
+  },
+);
+
+// Bulk toggle USP bars (enable or disable)
+export const bulkToggleAnnouncement = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { ids, enabled } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      throw new AppError("No IDs provided for toggle.", StatusCode.BAD_REQUEST);
+    }
+
+    if (typeof enabled !== "boolean") {
+      throw new AppError(
+        "Enabled status must be a boolean.",
+        StatusCode.BAD_REQUEST,
+      );
+    }
+
+    // Validate all IDs
+    const invalidIds = ids.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      throw new AppError(
+        `Invalid IDs: ${invalidIds.join(", ")}`,
+        StatusCode.BAD_REQUEST,
+      );
+    }
+
+    const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+    const result = await AnnouncementNotify.updateMany(
+      { _id: { $in: objectIds } },
+      { $set: { enabled } },
+    );
+
+    return res
+      .status(StatusCode.OK)
+      .json(
+        new ApiResponse(
+          true,
+          `${result.modifiedCount} Announcement(s) ${enabled ? "enabled" : "disabled"} successfully.`,
+          { modifiedCount: result.modifiedCount },
+        ),
+      );
+  },
+);
 
 // Handle GET, POST, DELETE for /api/phone/offline_{shop}
 export const handleOfflineSession = asyncHandler(
