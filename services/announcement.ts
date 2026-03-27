@@ -6,14 +6,22 @@ import mongoose from "mongoose";
 export const createAnnouncement = async (
   data: Pick<
     Announcement,
-    "title" | "subheading" | "announcement_name" | "shopify_session_id"
-  >,
+    | "title"
+    | "subheading"
+    | "announcement_name"
+    | "shopify_session_id"
+    | "page_display"
+  > & {
+    enabled?: boolean;
+  },
 ): Promise<Announcement> => {
   return await AnnouncementNotify.create({
     announcement_name: data.announcement_name,
     title: data.title,
     subheading: data.subheading,
     shopify_session_id: data.shopify_session_id,
+    enabled: data.enabled ?? true,
+    page_display: data.page_display,
   });
 };
 
@@ -27,6 +35,11 @@ export const getAllAnnouncement = async (
       mongoFilter.shopify_session_id as any,
     );
   }
+  if (mongoFilter.enabled === true) {
+    mongoFilter.$or = [{ enabled: true }, { enabled: { $exists: false } }];
+    delete mongoFilter.enabled;
+  }
+
   return await AnnouncementNotify.find(mongoFilter);
 };
 
@@ -40,16 +53,44 @@ export const getAnnouncementById = async (
 // Update announcement
 export const updateAnnouncement = async (
   id: string,
-  data: Pick<Announcement, "title" | "subheading" | "announcement_name">,
+  data: Pick<
+    Announcement,
+    "title" | "subheading" | "announcement_name" | "page_display"
+  > & {
+    enabled?: boolean;
+  },
 ): Promise<Announcement | null> => {
   const updateData: any = {
     announcement_name: data.announcement_name,
     title: data.title,
     subheading: data.subheading,
   };
+
+  if (data.enabled !== undefined) {
+    updateData.enabled = data.enabled;
+  }
+
+  if (data.page_display) {
+    updateData.page_display = data.page_display;
+  }
+
   return await AnnouncementNotify.findByIdAndUpdate(id, updateData, {
     new: true,
   });
+};
+
+// Toggle enabled status
+export const toggleEnabled = async (
+  id: string,
+): Promise<Announcement | null> => {
+  const item = await AnnouncementNotify.findById(id);
+  if (!item) return null;
+
+  return await AnnouncementNotify.findByIdAndUpdate(
+    id,
+    { enabled: !item.enabled },
+    { new: true },
+  );
 };
 
 // Delete announcement
