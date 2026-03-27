@@ -6,6 +6,7 @@ import {
   createAnnouncement,
   deleteAnnouncementData,
   getAnnouncementById,
+  getCurrentShopifySessionId,
   listAnnouncement,
   updateAnnouncementData,
 } from "../controllers/announcement.js";
@@ -13,6 +14,9 @@ import {
 const router = Router();
 
 router.use(validateShopifyHeader);
+
+// Shopify session
+router.get("/session/current_shop", getCurrentShopifySessionId);
 
 // Create
 router.post("/add", validate(announcementValidationSchema), createAnnouncement);
