@@ -75,8 +75,9 @@ export const updateAnnouncementData = asyncHandler(async (req, res) => {
     }
 });
 // List
-export const listAnnouncement = asyncHandler(async (_req, res) => {
+export const listAnnouncement = asyncHandler(async (req, res) => {
     const shopDomain = res.req.headers["x-shopify-shop-domain"];
+    const { search, sortOrder } = req.query;
     console.log("📱 Get all usp slider - Shop Domain", shopDomain);
     if (!shopDomain) {
         throw new AppError("Missing shop domain header.", StatusCode.BAD_REQUEST);
@@ -89,9 +90,18 @@ export const listAnnouncement = asyncHandler(async (_req, res) => {
     if (!sessionDoc || !sessionDoc._id) {
         throw new AppError("Session not found.", StatusCode.NOT_FOUND);
     }
-    const response = await announcementService.getAllAnnouncement({
+    const filter = {
         shopify_session_id: sessionDoc._id,
-    });
+    };
+    // Add search if provided
+    if (search) {
+        filter.search = search;
+    }
+    // sortOrder: "desc" = newest first, "asc" = oldest first (sorts by createdAt)
+    if (sortOrder === "desc" || sortOrder === "asc") {
+        filter.sortOrder = sortOrder;
+    }
+    const response = await announcementService.getAllAnnouncement(filter);
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)

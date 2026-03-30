@@ -10,6 +10,6 @@ const announcementSchema = new Schema({
         ref: "ShopifySession",
         required: true,
     },
-});
+}, { timestamps: true });
 export const AnnouncementNotify = model("AnnouncementNotify", announcementSchema);
 //# sourceMappingURL=announcement.js.map
