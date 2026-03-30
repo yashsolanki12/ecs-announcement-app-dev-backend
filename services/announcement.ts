@@ -27,9 +27,14 @@ export const createAnnouncement = async (
 
 // Get all announcement
 export const getAllAnnouncement = async (
-  filter: Partial<Announcement | null> = {},
+  filter: Partial<Announcement> & {
+    search?: string;
+    sortOrder?: "asc" | "desc";
+  } = {},
 ): Promise<Announcement[]> => {
-  const mongoFilter: any = { ...filter };
+  const { search, sortOrder, ...restFilter } = filter;
+  const mongoFilter: any = { ...restFilter };
+
   if (mongoFilter.shopify_session_id) {
     mongoFilter.shopify_session_id = new mongoose.Types.ObjectId(
       mongoFilter.shopify_session_id as any,
@@ -40,7 +45,30 @@ export const getAllAnnouncement = async (
     delete mongoFilter.enabled;
   }
 
-  return await AnnouncementNotify.find(mongoFilter);
+  if (search) {
+    const searchCriteria = {
+      $or: [
+        { announcement_name: { $regex: search, $options: "i" } },
+        { title: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    if (mongoFilter.$or) {
+      mongoFilter.$and = [{ $or: mongoFilter.$or }, searchCriteria];
+      delete mongoFilter.$or;
+    } else {
+      Object.assign(mongoFilter, searchCriteria);
+    }
+  }
+
+  let query = AnnouncementNotify.find(mongoFilter);
+
+  // Sort by createdAt by default - desc = oldest first, asc = newest first
+  if (sortOrder === "asc" || sortOrder === "desc") {
+    query = query.sort({ createdAt: sortOrder === "desc" ? 1 : -1 });
+  }
+
+  return await query;
 };
 
 // Get announcement by id;
@@ -76,6 +104,7 @@ export const updateAnnouncement = async (
 
   return await AnnouncementNotify.findByIdAndUpdate(id, updateData, {
     new: true,
+    runValidators: true,
   });
 };
 

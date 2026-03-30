@@ -125,8 +125,9 @@ export const updateAnnouncementData = asyncHandler(
 
 // List
 export const listAnnouncement = asyncHandler(
-  async (_req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const shopDomain = res.req.headers["x-shopify-shop-domain"] as string;
+    const { search, sortOrder } = req.query as any;
     console.log("📱 Get all usp slider - Shop Domain", shopDomain);
 
     if (!shopDomain) {
@@ -144,9 +145,20 @@ export const listAnnouncement = asyncHandler(
       throw new AppError("Session not found.", StatusCode.NOT_FOUND);
     }
 
-    const response = await announcementService.getAllAnnouncement({
+    const filter: any = {
       shopify_session_id: sessionDoc._id,
-    });
+    };
+
+    // Add search if provided
+    if (search) {
+      filter.search = search as string;
+    }
+    // sortOrder: "desc" = newest first, "asc" = oldest first (sorts by createdAt)
+    if (sortOrder === "desc" || sortOrder === "asc") {
+      filter.sortOrder = sortOrder;
+    }
+
+    const response = await announcementService.getAllAnnouncement(filter);
 
     if (!response || response.length === 0) {
       return res
