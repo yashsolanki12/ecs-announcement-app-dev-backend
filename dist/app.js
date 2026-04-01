@@ -110,7 +110,7 @@ async (req, res, next) => {
     res.status(StatusCode.OK).json(new ApiResponse(true, "Received"));
 });
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 // Cors for Development & Production use
 app.use(cors({
