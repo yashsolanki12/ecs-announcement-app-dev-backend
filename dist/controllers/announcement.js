@@ -25,8 +25,7 @@ export const getCurrentShopifySessionId = asyncHandler(async (req, res) => {
 });
 // Create
 export const createAnnouncement = asyncHandler(async (req, res) => {
-    const { announcement_name, title, subheading, shopify_session_id, enabled, page_display, } = req.body;
-    console.log("req", req.body);
+    const { announcement_name, title, subheading, shopify_session_id, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, } = req.body;
     if (!announcement_name || !title || !shopify_session_id) {
         throw new AppError("Announcement name, Title and shopify_session_id is required.", StatusCode.BAD_REQUEST);
     }
@@ -35,8 +34,36 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
         title,
         subheading,
         shopify_session_id,
-        enabled,
+        enabled: true, // Always set to true on creation
         page_display,
+        announcement_type,
+        icon,
+        icon_color,
+        marquee_direction,
+        marquee_speed,
+        cta_type,
+        cta_link,
+        cta_text,
+        start_datetime,
+        end_datetime,
+        has_end_date,
+        position,
+        title_size,
+        title_color,
+        subheading_size,
+        subheading_color,
+        background_type,
+        background_color,
+        button_font_size,
+        button_text_color,
+        button_background_color,
+        button_border_style,
+        button_border_color,
+        gradient_colors,
+        template_id,
+        background_image,
+        announcements,
+        arrow_icon_color,
     });
     if (!response) {
         throw new AppError("Failed to create new announcement.", StatusCode.BAD_REQUEST);
@@ -50,7 +77,7 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
 // Update
 export const updateAnnouncementData = asyncHandler(async (req, res) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { announcement_name, title, subheading, enabled, page_display } = req.body;
+    const { announcement_name, title, subheading, enabled, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, } = req.body;
     if (!announcement_name || !title) {
         throw new AppError("Announcement name, Title is required.", StatusCode.BAD_REQUEST);
     }
@@ -63,6 +90,34 @@ export const updateAnnouncementData = asyncHandler(async (req, res) => {
         subheading: subheading,
         enabled: enabled,
         page_display: page_display,
+        announcement_type: announcement_type,
+        icon: icon,
+        icon_color: icon_color,
+        marquee_direction: marquee_direction,
+        marquee_speed: marquee_speed,
+        cta_type: cta_type,
+        cta_link: cta_link,
+        cta_text: cta_text,
+        start_datetime: start_datetime,
+        end_datetime: end_datetime,
+        has_end_date: has_end_date,
+        position: position,
+        title_size: title_size,
+        title_color: title_color,
+        subheading_size: subheading_size,
+        subheading_color: subheading_color,
+        background_type: background_type,
+        background_color: background_color,
+        button_font_size: button_font_size,
+        button_text_color: button_text_color,
+        button_background_color: button_background_color,
+        button_border_style: button_border_style,
+        button_border_color: button_border_color,
+        gradient_colors: gradient_colors,
+        template_id: template_id,
+        background_image: background_image,
+        announcements: announcements,
+        arrow_icon_color: arrow_icon_color,
     };
     const response = await announcementService.updateAnnouncement(id, payload);
     if (!response) {

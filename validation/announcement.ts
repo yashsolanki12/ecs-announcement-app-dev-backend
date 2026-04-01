@@ -10,8 +10,8 @@ export const announcementValidationSchema = z.object({
       }),
     title: z
       .string()
-      .min(1, { message: "Title is required." })
-      .max(30, { message: "Title must be 30 characters or less." }),
+      .min(1, { message: "Title is required." }),
+      // .max(30, { message: "Title must be 30 characters or less." }),
     subheading: z.string().optional(),
   }),
 });

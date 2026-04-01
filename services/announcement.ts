@@ -11,6 +11,34 @@ export const createAnnouncement = async (
     | "announcement_name"
     | "shopify_session_id"
     | "page_display"
+    | "announcement_type"
+    | "icon"
+    | "marquee_direction"
+    | "marquee_speed"
+    | "cta_type"
+    | "cta_link"
+    | "cta_text"
+    | "start_datetime"
+    | "end_datetime"
+    | "has_end_date"
+    | "icon_color"
+    | "position"
+    | "title_size"
+    | "title_color"
+    | "subheading_size"
+    | "subheading_color"
+    | "background_type"
+    | "background_color"
+    | "button_font_size"
+    | "button_text_color"
+    | "button_background_color"
+    | "button_border_style"
+    | "button_border_color"
+    | "gradient_colors"
+    | "template_id"
+    | "background_image"
+    | "announcements"
+    | "arrow_icon_color"
   > & {
     enabled?: boolean;
   },
@@ -22,6 +50,34 @@ export const createAnnouncement = async (
     shopify_session_id: data.shopify_session_id,
     enabled: data.enabled ?? true,
     page_display: data.page_display,
+    announcement_type: data.announcement_type,
+    icon: data.icon,
+    marquee_direction: data.marquee_direction,
+    marquee_speed: data.marquee_speed,
+    cta_type: data.cta_type,
+    cta_link: data.cta_link,
+    cta_text: data.cta_text,
+    start_datetime: data.start_datetime,
+    end_datetime: data.end_datetime,
+    has_end_date: data.has_end_date,
+    icon_color: data.icon_color,
+    position: data.position,
+    title_size: data.title_size,
+    title_color: data.title_color,
+    subheading_size: data.subheading_size,
+    subheading_color: data.subheading_color,
+    background_type: data.background_type,
+    background_color: data.background_color,
+    button_font_size: data.button_font_size,
+    button_text_color: data.button_text_color,
+    button_background_color: data.button_background_color,
+    button_border_style: data.button_border_style,
+    button_border_color: data.button_border_color,
+    gradient_colors: data.gradient_colors,
+    template_id: data.template_id,
+    background_image: data.background_image,
+    announcements: data.announcements,
+    arrow_icon_color: data.arrow_icon_color,
   });
 };
 
@@ -83,7 +139,38 @@ export const updateAnnouncement = async (
   id: string,
   data: Pick<
     Announcement,
-    "title" | "subheading" | "announcement_name" | "page_display"
+    | "title"
+    | "subheading"
+    | "announcement_name"
+    | "page_display"
+    | "announcement_type"
+    | "icon"
+    | "marquee_direction"
+    | "marquee_speed"
+    | "cta_type"
+    | "cta_link"
+    | "cta_text"
+    | "start_datetime"
+    | "end_datetime"
+    | "has_end_date"
+    | "icon_color"
+    | "position"
+    | "title_size"
+    | "title_color"
+    | "subheading_size"
+    | "subheading_color"
+    | "background_type"
+    | "background_color"
+    | "button_font_size"
+    | "button_text_color"
+    | "button_background_color"
+    | "button_border_style"
+    | "button_border_color"
+    | "gradient_colors"
+    | "template_id"
+    | "background_image"
+    | "announcements"
+    | "arrow_icon_color"
   > & {
     enabled?: boolean;
   },
@@ -92,6 +179,34 @@ export const updateAnnouncement = async (
     announcement_name: data.announcement_name,
     title: data.title,
     subheading: data.subheading,
+    announcement_type: data.announcement_type,
+    icon: data.icon,
+    marquee_direction: data.marquee_direction,
+    marquee_speed: data.marquee_speed,
+    cta_type: data.cta_type,
+    cta_link: data.cta_link,
+    cta_text: data.cta_text,
+    start_datetime: data.start_datetime,
+    end_datetime: data.end_datetime,
+    has_end_date: data.has_end_date,
+    icon_color: data.icon_color,
+    position: data.position,
+    title_size: data.title_size,
+    title_color: data.title_color,
+    subheading_size: data.subheading_size,
+    subheading_color: data.subheading_color,
+    background_type: data.background_type,
+    background_color: data.background_color,
+    button_font_size: data.button_font_size,
+    button_text_color: data.button_text_color,
+    button_background_color: data.button_background_color,
+    button_border_style: data.button_border_style,
+    button_border_color: data.button_border_color,
+    gradient_colors: data.gradient_colors,
+    template_id: data.template_id,
+    background_image: data.background_image,
+    announcements: data.announcements,
+    arrow_icon_color: data.arrow_icon_color,
   };
 
   if (data.enabled !== undefined) {
