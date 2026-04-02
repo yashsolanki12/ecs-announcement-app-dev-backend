@@ -25,7 +25,7 @@ export const getCurrentShopifySessionId = asyncHandler(async (req, res) => {
 });
 // Create
 export const createAnnouncement = asyncHandler(async (req, res) => {
-    const { announcement_name, title, subheading, shopify_session_id, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, } = req.body;
+    const { announcement_name, title, subheading, shopify_session_id, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, sticky_bar, } = req.body;
     if (!announcement_name || !title || !shopify_session_id) {
         throw new AppError("Announcement name, Title and shopify_session_id is required.", StatusCode.BAD_REQUEST);
     }
@@ -64,6 +64,7 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
         background_image,
         announcements,
         arrow_icon_color,
+        sticky_bar,
     });
     if (!response) {
         throw new AppError("Failed to create new announcement.", StatusCode.BAD_REQUEST);
@@ -77,7 +78,7 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
 // Update
 export const updateAnnouncementData = asyncHandler(async (req, res) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { announcement_name, title, subheading, enabled, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, } = req.body;
+    const { announcement_name, title, subheading, enabled, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, sticky_bar, } = req.body;
     if (!announcement_name || !title) {
         throw new AppError("Announcement name, Title is required.", StatusCode.BAD_REQUEST);
     }
@@ -118,6 +119,7 @@ export const updateAnnouncementData = asyncHandler(async (req, res) => {
         background_image: background_image,
         announcements: announcements,
         arrow_icon_color: arrow_icon_color,
+        sticky_bar: sticky_bar,
     };
     const response = await announcementService.updateAnnouncement(id, payload);
     if (!response) {
@@ -127,6 +129,48 @@ export const updateAnnouncementData = asyncHandler(async (req, res) => {
         return res
             .status(StatusCode.OK)
             .json(new ApiResponse(true, "Announcement updated successfully.", response));
+    }
+});
+// List
+export const publicListAnnouncement = asyncHandler(async (req, res) => {
+    const shopParam = Array.isArray(req.params.shop)
+        ? req.params.shop[0]
+        : req.params.shop;
+    let shop = shopParam;
+    if (!shop.includes(".myshopify.com")) {
+        shop = `${shop}.myshopify.com`;
+    }
+    const { search, sortOrder } = req.query;
+    console.log("📱 Get all usp slider - Shop Domain", shopParam);
+    // Find the session for this shop
+    const sessionDoc = await mongoose.connection
+        .collection("shopify_sessions")
+        .findOne({ shop });
+    console.log("Session found for all USP Bar 🔎", sessionDoc ? "Yes" : "No");
+    if (!sessionDoc || !sessionDoc._id) {
+        throw new AppError("Session not found.", StatusCode.NOT_FOUND);
+    }
+    const filter = {
+        shopify_session_id: sessionDoc._id,
+    };
+    // Add search if provided
+    if (search) {
+        filter.search = search;
+    }
+    // sortOrder: "desc" = newest first, "asc" = oldest first (sorts by createdAt)
+    if (sortOrder === "desc" || sortOrder === "asc") {
+        filter.sortOrder = sortOrder;
+    }
+    const response = await announcementService.getAllAnnouncement(filter);
+    if (!response || response.length === 0) {
+        return res
+            .status(StatusCode.OK)
+            .json(new ApiResponse(false, "No announcement found.", []));
+    }
+    if (response) {
+        return res
+            .status(StatusCode.OK)
+            .json(new ApiResponse(true, "Announcement retrieved successfully.", response));
     }
 });
 // List

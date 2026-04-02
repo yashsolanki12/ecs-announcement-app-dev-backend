@@ -37,6 +37,7 @@ export const createAnnouncement = async (data) => {
         background_image: data.background_image,
         announcements: data.announcements,
         arrow_icon_color: data.arrow_icon_color,
+        sticky_bar: data.sticky_bar,
     });
 };
 // Get all announcement
@@ -110,6 +111,7 @@ export const updateAnnouncement = async (id, data) => {
         background_image: data.background_image,
         announcements: data.announcements,
         arrow_icon_color: data.arrow_icon_color,
+        sticky_bar: data.sticky_bar,
     };
     if (data.enabled !== undefined) {
         updateData.enabled = data.enabled;

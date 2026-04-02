@@ -2,8 +2,11 @@ import { Router } from "express";
 import { announcementValidationSchema } from "../validation/announcement.js";
 import { validate } from "../middleware/validate.js";
 import { validateShopifyHeader } from "../middleware/auth.js";
-import { bulkDeleteAnnouncement, bulkToggleAnnouncement, createAnnouncement, deleteAnnouncementData, duplicateAnnouncement, getAnnouncementById, getCurrentShopifySessionId, listAnnouncement, toggleAnnouncement, updateAnnouncementData, } from "../controllers/announcement.js";
+import { bulkDeleteAnnouncement, bulkToggleAnnouncement, createAnnouncement, deleteAnnouncementData, duplicateAnnouncement, getAnnouncementById, getCurrentShopifySessionId, listAnnouncement, publicListAnnouncement, toggleAnnouncement, updateAnnouncementData, } from "../controllers/announcement.js";
 const router = Router();
+// Public
+router.get("/public/:shop", publicListAnnouncement);
+// Apply header to the below routes
 router.use(validateShopifyHeader);
 // Shopify session
 router.get("/session/current_shop", getCurrentShopifySessionId);

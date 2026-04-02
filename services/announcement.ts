@@ -39,6 +39,7 @@ export const createAnnouncement = async (
     | "background_image"
     | "announcements"
     | "arrow_icon_color"
+    | "sticky_bar"
   > & {
     enabled?: boolean;
   },
@@ -78,6 +79,7 @@ export const createAnnouncement = async (
     background_image: data.background_image,
     announcements: data.announcements,
     arrow_icon_color: data.arrow_icon_color,
+    sticky_bar: data.sticky_bar,
   });
 };
 
@@ -171,6 +173,7 @@ export const updateAnnouncement = async (
     | "background_image"
     | "announcements"
     | "arrow_icon_color"
+    | "sticky_bar"
   > & {
     enabled?: boolean;
   },
@@ -207,6 +210,7 @@ export const updateAnnouncement = async (
     background_image: data.background_image,
     announcements: data.announcements,
     arrow_icon_color: data.arrow_icon_color,
+    sticky_bar: data.sticky_bar,
   };
 
   if (data.enabled !== undefined) {

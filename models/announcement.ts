@@ -45,6 +45,7 @@ const announcementSchema = new Schema<Announcement>(
     background_image: { type: String, required: false },
     announcements: { type: Array, required: false },
     arrow_icon_color: { type: String, required: false },
+    sticky_bar: { type: Boolean, required: false },
   },
   { timestamps: true },
 );
