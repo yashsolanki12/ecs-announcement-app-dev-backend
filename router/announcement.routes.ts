@@ -11,12 +11,17 @@ import {
   getAnnouncementById,
   getCurrentShopifySessionId,
   listAnnouncement,
+  publicListAnnouncement,
   toggleAnnouncement,
   updateAnnouncementData,
 } from "../controllers/announcement.js";
 
 const router = Router();
 
+// Public
+router.get("/public/:shop", publicListAnnouncement);
+
+// Apply header to the below routes
 router.use(validateShopifyHeader);
 
 // Shopify session

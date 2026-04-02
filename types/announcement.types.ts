@@ -33,6 +33,7 @@ export interface Announcement extends Document {
   background_image?: string;
   template_id?: string;
   announcements?: any[];
-  arrow_icon_color?: string
+  arrow_icon_color?: string;
+  sticky_bar?: boolean;
   page_display?: string[];
 }

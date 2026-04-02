@@ -42,6 +42,7 @@ const announcementSchema = new Schema({
     background_image: { type: String, required: false },
     announcements: { type: Array, required: false },
     arrow_icon_color: { type: String, required: false },
+    sticky_bar: { type: Boolean, required: false },
 }, { timestamps: true });
 export const AnnouncementNotify = model("AnnouncementNotify", announcementSchema);
 //# sourceMappingURL=announcement.js.map
