@@ -76,6 +76,7 @@ export const createAnnouncement = asyncHandler(
       background_image,
       announcements,
       arrow_icon_color,
+      sticky_bar,
     } = req.body;
 
     if (!announcement_name || !title || !shopify_session_id) {
@@ -120,6 +121,7 @@ export const createAnnouncement = asyncHandler(
       background_image,
       announcements,
       arrow_icon_color,
+      sticky_bar,
     });
 
     if (!response) {
@@ -176,6 +178,7 @@ export const updateAnnouncementData = asyncHandler(
       background_image,
       announcements,
       arrow_icon_color,
+      sticky_bar,
     } = req.body;
 
     if (!announcement_name || !title) {
@@ -222,6 +225,7 @@ export const updateAnnouncementData = asyncHandler(
       background_image: background_image,
       announcements: announcements,
       arrow_icon_color: arrow_icon_color,
+      sticky_bar: sticky_bar,
     };
     const response = await announcementService.updateAnnouncement(id, payload);
 
@@ -233,6 +237,64 @@ export const updateAnnouncementData = asyncHandler(
         .status(StatusCode.OK)
         .json(
           new ApiResponse(true, "Announcement updated successfully.", response),
+        );
+    }
+  },
+);
+
+// List
+export const publicListAnnouncement = asyncHandler(
+  async (req: Request, res: Response) => {
+    const shopParam = Array.isArray(req.params.shop)
+      ? req.params.shop[0]
+      : req.params.shop;
+    let shop = shopParam;
+    if (!shop.includes(".myshopify.com")) {
+      shop = `${shop}.myshopify.com`;
+    }
+    const { search, sortOrder } = req.query as any;
+    console.log("📱 Get all usp slider - Shop Domain", shopParam);
+
+    // Find the session for this shop
+    const sessionDoc = await mongoose.connection
+      .collection("shopify_sessions")
+      .findOne({ shop });
+
+    console.log("Session found for all USP Bar 🔎", sessionDoc ? "Yes" : "No");
+
+    if (!sessionDoc || !sessionDoc._id) {
+      throw new AppError("Session not found.", StatusCode.NOT_FOUND);
+    }
+
+    const filter: any = {
+      shopify_session_id: sessionDoc._id,
+    };
+
+    // Add search if provided
+    if (search) {
+      filter.search = search as string;
+    }
+    // sortOrder: "desc" = newest first, "asc" = oldest first (sorts by createdAt)
+    if (sortOrder === "desc" || sortOrder === "asc") {
+      filter.sortOrder = sortOrder;
+    }
+
+    const response = await announcementService.getAllAnnouncement(filter);
+
+    if (!response || response.length === 0) {
+      return res
+        .status(StatusCode.OK)
+        .json(new ApiResponse(false, "No announcement found.", []));
+    }
+    if (response) {
+      return res
+        .status(StatusCode.OK)
+        .json(
+          new ApiResponse(
+            true,
+            "Announcement retrieved successfully.",
+            response,
+          ),
         );
     }
   },
