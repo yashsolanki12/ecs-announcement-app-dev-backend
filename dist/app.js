@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import announcementRoutes from "./router/announcement.routes.js";
 import shopifyAuthRoutes from "./router/shopify-auth.routes.js";
 import cookieParser from "cookie-parser";
@@ -140,6 +141,30 @@ app.use(cors({
 }));
 // Announcement routes
 app.use("/api/announcement", announcementRoutes);
+// Cron job to disable announcements when end_datetime passes
+const checkAndDisableExpiredAnnouncements = async () => {
+    try {
+        const now = new Date();
+        const result = await mongoose.connection
+            .collection("announcement_notifies")
+            .updateMany({
+            has_end_date: true,
+            enabled: true,
+            $and: [
+                { end_datetime: { $exists: true, $ne: "" } },
+                { end_datetime: { $lt: now.toISOString() } },
+            ],
+        }, { $set: { enabled: false } });
+        if (result.modifiedCount > 0) {
+            console.log(`[Cron] Disabled ${result.modifiedCount} expired announcement(s)`);
+        }
+    }
+    catch (error) {
+        console.error("[Cron] Error disabling expired announcements:", error);
+    }
+};
+// Run every minute
+setInterval(checkAndDisableExpiredAnnouncements, 60 * 1000);
 // Routes for shopify authentication
 app.use("/api/shopify", shopifyAuthRoutes);
 // Global error handler
