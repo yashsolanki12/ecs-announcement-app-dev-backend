@@ -161,7 +161,26 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
     if (sortOrder === "desc" || sortOrder === "asc") {
         filter.sortOrder = sortOrder;
     }
-    const response = await announcementService.getAllAnnouncement(filter);
+    const now = new Date();
+    const nowTimestamp = now.getTime();
+    let response = await announcementService.getAllAnnouncement(filter);
+    // Check and update expired announcements
+    for (const announcement of response) {
+        if (announcement.has_end_date && announcement.end_datetime) {
+            const endTimestamp = new Date(announcement.end_datetime).getTime();
+            if (nowTimestamp > endTimestamp && announcement.enabled) {
+                await announcementService.updateEnabledStatus(announcement._id.toString(), false);
+            }
+        }
+    }
+    // Filter by start_datetime only (don't hide expired ones - they show as enabled:false)
+    response = response.filter((announcement) => {
+        const start = announcement.start_datetime
+            ? new Date(announcement.start_datetime).getTime()
+            : null;
+        const isValidStart = !start || nowTimestamp >= start;
+        return isValidStart;
+    });
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)
@@ -173,7 +192,7 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
             .json(new ApiResponse(true, "Announcement retrieved successfully.", response));
     }
 });
-// List
+// List (for admin dashboard)
 export const listAnnouncement = asyncHandler(async (req, res) => {
     const shopDomain = res.req.headers["x-shopify-shop-domain"];
     const { search, sortOrder } = req.query;
@@ -200,7 +219,26 @@ export const listAnnouncement = asyncHandler(async (req, res) => {
     if (sortOrder === "desc" || sortOrder === "asc") {
         filter.sortOrder = sortOrder;
     }
-    const response = await announcementService.getAllAnnouncement(filter);
+    let response = await announcementService.getAllAnnouncement(filter);
+    const now = new Date();
+    const nowTimestamp = now.getTime();
+    // Check and update expired announcements
+    for (const announcement of response) {
+        if (announcement.has_end_date && announcement.end_datetime) {
+            const endTimestamp = new Date(announcement.end_datetime).getTime();
+            if (nowTimestamp > endTimestamp && announcement.enabled) {
+                await announcementService.updateEnabledStatus(announcement._id.toString(), false);
+            }
+        }
+    }
+    // Filter by start_datetime only (don't hide expired ones - they show as enabled:false)
+    response = response.filter((announcement) => {
+        const start = announcement.start_datetime
+            ? new Date(announcement.start_datetime).getTime()
+            : null;
+        const isValidStart = !start || nowTimestamp >= start;
+        return isValidStart;
+    });
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)

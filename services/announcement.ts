@@ -241,6 +241,18 @@ export const toggleEnabled = async (
   );
 };
 
+// Update enabled status only
+export const updateEnabledStatus = async (
+  id: string,
+  enabled: boolean,
+): Promise<Announcement | null> => {
+  return await AnnouncementNotify.findByIdAndUpdate(
+    id,
+    { enabled },
+    { new: true },
+  );
+};
+
 // Delete announcement
 export const deleteAnnouncement = async (
   id: string,

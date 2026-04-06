@@ -131,6 +131,10 @@ export const toggleEnabled = async (id) => {
         return null;
     return await AnnouncementNotify.findByIdAndUpdate(id, { enabled: !item.enabled }, { new: true });
 };
+// Update enabled status only
+export const updateEnabledStatus = async (id, enabled) => {
+    return await AnnouncementNotify.findByIdAndUpdate(id, { enabled }, { new: true });
+};
 // Delete announcement
 export const deleteAnnouncement = async (id) => {
     return await AnnouncementNotify.findByIdAndDelete(id);
