@@ -300,6 +300,14 @@ export const publicListAnnouncement = asyncHandler(
         ? new Date(announcement.start_datetime).getTime()
         : null;
       const isValidStart = !start || nowTimestamp >= start;
+      
+      console.log(`📅 DateTime Check for "${announcement.title}":`);
+      console.log(`   start_datetime in DB: ${announcement.start_datetime}`);
+      console.log(`   Parsed start timestamp: ${start}`);
+      console.log(`   Current timestamp: ${nowTimestamp}`);
+      console.log(`   Current date: ${new Date().toISOString()}`);
+      console.log(`   isValidStart: ${isValidStart}`);
+      
       return isValidStart;
     });
 
