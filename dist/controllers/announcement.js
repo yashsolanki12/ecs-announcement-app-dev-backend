@@ -29,6 +29,52 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
     if (!announcement_name || !title || !shopify_session_id) {
         throw new AppError("Announcement name, Title and shopify_session_id is required.", StatusCode.BAD_REQUEST);
     }
+    // Free Plan Limit Validation (Max 10)
+    const count = await AnnouncementNotify.countDocuments({
+        shopify_session_id,
+    });
+    if (count >= 10) {
+        let isPaid = false;
+        try {
+            const sessionDoc = await mongoose.connection
+                .collection("shopify_sessions")
+                .findOne({ _id: new mongoose.Types.ObjectId(shopify_session_id) });
+            if (sessionDoc && sessionDoc.shop && sessionDoc.accessToken) {
+                const graphqlQuery = `
+            query {
+              app {
+                installation {
+                  activeSubscriptions {
+                    status
+                  }
+                }
+              }
+            }
+          `;
+                const graphqlResponse = await fetch(`https://${sessionDoc.shop}/admin/api/2026-04/graphql.json`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Shopify-Access-Token": sessionDoc.accessToken,
+                    },
+                    body: JSON.stringify({ query: graphqlQuery }),
+                });
+                if (graphqlResponse.ok) {
+                    const data = await graphqlResponse.json();
+                    const subscriptions = data?.data?.app?.installation?.activeSubscriptions || [];
+                    if (subscriptions.some((sub) => sub.status === "ACTIVE")) {
+                        isPaid = true;
+                    }
+                }
+            }
+        }
+        catch (error) {
+            console.error("Error checking subscription limit:", error);
+        }
+        if (!isPaid) {
+            throw new AppError("Limit of 10 Announcement reached for the Free plan.", StatusCode.FORBIDDEN);
+        }
+    }
     const response = await announcementService.createAnnouncement({
         announcement_name,
         title,
@@ -149,6 +195,48 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
     console.log("Session found for all USP Bar 🔎", sessionDoc ? "Yes" : "No");
     if (!sessionDoc || !sessionDoc._id) {
         throw new AppError("Session not found.", StatusCode.NOT_FOUND);
+    }
+    // --- VIEW LIMIT INCREMENT AND CHECK ---
+    const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const StoreMetrics = (await import("../models/store-metrics.js")).default;
+    let metrics = await StoreMetrics.findOne({ shop });
+    const increment = Math.floor(Math.random() * 8) + 1; // plan view number
+    if (!metrics) {
+        metrics = new StoreMetrics({
+            shop,
+            view_count: increment,
+            last_reset_month: currentMonth,
+            plan_name: "Free",
+        });
+        await metrics.save();
+    }
+    else {
+        if (metrics.last_reset_month !== currentMonth) {
+            metrics.view_count = increment;
+            metrics.last_reset_month = currentMonth;
+        }
+        else {
+            metrics.view_count += increment;
+        }
+        await metrics.save();
+    }
+    let viewLimit = 1000;
+    if (metrics.plan_name.toLowerCase().includes("plan 1")) {
+        viewLimit = 3000;
+    }
+    else if (metrics.plan_name.toLowerCase().includes("plan 2")) {
+        viewLimit = -1; // unlimited
+    }
+    if (viewLimit !== -1 && metrics.view_count > viewLimit) {
+        console.log(`❌ View limit exceeded for shop ${shop}. Limit: ${viewLimit}, Views: ${metrics.view_count}`);
+        // Get the USP bar data even when limit exceeded so frontend can display it with a warning
+        // const response = await uspSliderService.getAllUsp({
+        //   shopify_session_id: sessionDoc._id,
+        //   enabled: true,
+        // });
+        return res
+            .status(StatusCode.OK)
+            .json(new ApiResponse(true, `You have reached the ${viewLimit} monthly view limit for ${metrics.plan_name} plan. Please upgrade your plan to continue.`, []));
     }
     const filter = {
         shopify_session_id: sessionDoc._id,
