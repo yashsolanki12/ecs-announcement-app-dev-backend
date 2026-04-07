@@ -5,6 +5,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import announcementRoutes from "./router/announcement.routes.js";
 import shopifyAuthRoutes from "./router/shopify-auth.routes.js";
+import storeMetricsRoutes from "./router/store-metrics.routes.js";
 import cookieParser from "cookie-parser";
 import { homePageHtml } from "./utils/home-page.js";
 import { connectDB } from "./config/db.js";
@@ -177,6 +178,9 @@ app.use(
 
 // Announcement routes
 app.use("/api/announcement", announcementRoutes);
+
+// Store Metrics routes
+app.use("/api/store-metrics", storeMetricsRoutes);
 
 // Cron job to disable announcements when end_datetime passes
 const checkAndDisableExpiredAnnouncements = async () => {
