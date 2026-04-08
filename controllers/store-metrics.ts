@@ -59,7 +59,6 @@ export const syncStoreMetrics = asyncHandler(
     } else {
       limit = 1000;
     }
-    console.log("metric", metrics);
     if (limit !== -1 && metrics.view_count >= limit) {
       throw new AppError(
         `You have reached the ${limit} monthly view limit for ${plan_name} plan. Please upgrade your plan to continue.`,

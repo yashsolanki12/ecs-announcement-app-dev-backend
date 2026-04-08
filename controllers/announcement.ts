@@ -327,13 +327,42 @@ export const publicListAnnouncement = asyncHandler(
     const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
     const StoreMetrics = (await import("../models/store-metrics.js")).default;
     let metrics = await StoreMetrics.findOne({ shop });
+
+    // Check if no plan selected (only "No Plan" string)
+    const isNoPlanInitial = !metrics || metrics.plan_name === "No Plan";
+
+    if (isNoPlanInitial) {
+      // If no plan, set view_count to 0 and return message
+      if (!metrics) {
+        metrics = new StoreMetrics({
+          shop,
+          view_count: 0,
+          last_reset_month: currentMonth,
+          plan_name: "No Plan",
+        });
+        await metrics.save();
+      } else {
+        metrics.view_count = 0;
+        await metrics.save();
+      }
+      return res
+        .status(StatusCode.OK)
+        .json(
+          new ApiResponse(
+            true,
+            "No active plan selected. Please select a plan to view content.",
+            [],
+          ),
+        );
+    }
+
     const increment = Math.floor(Math.random() * 8) + 1; // plan view number
     if (!metrics) {
       metrics = new StoreMetrics({
         shop,
         view_count: increment,
         last_reset_month: currentMonth,
-        plan_name: "Free",
+        plan_name: "",
       });
       await metrics.save();
     } else {
@@ -355,11 +384,7 @@ export const publicListAnnouncement = asyncHandler(
       console.log(
         `❌ View limit exceeded for shop ${shop}. Limit: ${viewLimit}, Views: ${metrics.view_count}`,
       );
-      // Get the USP bar data even when limit exceeded so frontend can display it with a warning
-      // const response = await uspSliderService.getAllUsp({
-      //   shopify_session_id: sessionDoc._id,
-      //   enabled: true,
-      // });
+
       return res
         .status(StatusCode.OK)
         .json(
