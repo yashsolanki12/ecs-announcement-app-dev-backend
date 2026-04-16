@@ -336,15 +336,16 @@ export const publicListAnnouncement = asyncHandler(
       if (!metrics) {
         metrics = new StoreMetrics({
           shop,
-          view_count: 0,
+          // view_count: 0,
           last_reset_month: currentMonth,
           plan_name: "No Plan",
         });
         await metrics.save();
-      } else {
-        metrics.view_count = 0;
-        await metrics.save();
       }
+      // else {
+      //   metrics.view_count = 0;
+      //   await metrics.save();
+      // }
       return res
         .status(StatusCode.OK)
         .json(

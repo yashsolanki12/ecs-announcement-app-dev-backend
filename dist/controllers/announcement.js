@@ -207,16 +207,16 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
         if (!metrics) {
             metrics = new StoreMetrics({
                 shop,
-                view_count: 0,
+                // view_count: 0,
                 last_reset_month: currentMonth,
                 plan_name: "No Plan",
             });
             await metrics.save();
         }
-        else {
-            metrics.view_count = 0;
-            await metrics.save();
-        }
+        // else {
+        //   metrics.view_count = 0;
+        //   await metrics.save();
+        // }
         return res
             .status(StatusCode.OK)
             .json(new ApiResponse(true, "No active plan selected. Please select a plan to view content.", []));
