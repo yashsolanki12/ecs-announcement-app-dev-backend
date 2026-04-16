@@ -14,7 +14,7 @@ export const syncStoreMetrics = asyncHandler(async (req, res) => {
     if (!metrics) {
         metrics = new StoreMetrics({
             shop,
-            view_count: 0,
+            // view_count: 0,
             last_reset_month: currentMonth,
             plan_name,
         });
@@ -24,7 +24,7 @@ export const syncStoreMetrics = asyncHandler(async (req, res) => {
         let changed = false;
         // Reset if it's a new month
         if (metrics.last_reset_month !== currentMonth) {
-            metrics.view_count = 0;
+            // metrics.view_count = 0;
             metrics.last_reset_month = currentMonth;
             changed = true;
         }
