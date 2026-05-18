@@ -25,7 +25,7 @@ export const getCurrentShopifySessionId = asyncHandler(async (req, res) => {
 });
 // Create
 export const createAnnouncement = asyncHandler(async (req, res) => {
-    const { announcement_name, title, subheading, shopify_session_id, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, sticky_bar, } = req.body;
+    const { announcement_name, title, subheading, shopify_session_id, page_display, announcement_type, icon, icon_color, marquee_direction, marquee_speed, cta_type, cta_link, cta_text, start_datetime, end_datetime, has_end_date, position, title_size, title_color, subheading_size, subheading_color, background_type, background_color, button_font_size, button_text_color, button_background_color, button_border_style, button_border_color, gradient_colors, template_id, background_image, announcements, arrow_icon_color, sticky_bar, enabled, } = req.body;
     if (!announcement_name || !title || !shopify_session_id) {
         throw new AppError("Announcement name, Title and shopify_session_id is required.", StatusCode.BAD_REQUEST);
     }
@@ -75,12 +75,34 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
             throw new AppError("Limit of 10 Announcement reached for the Free plan.", StatusCode.FORBIDDEN);
         }
     }
+    // Calculate initial enabled status
+    let initialEnabled = enabled !== undefined ? enabled : false;
+    const now = new Date().getTime();
+    const startTime = start_datetime ? new Date(start_datetime).getTime() : null;
+    const endTime = end_datetime ? new Date(end_datetime).getTime() : null;
+    if (endTime && startTime) {
+        // Both start and end datetime
+        if (endTime <= startTime) {
+            initialEnabled = false;
+        }
+        else if (now >= startTime && now < endTime) {
+            initialEnabled = true;
+        }
+        else {
+            initialEnabled = false;
+        }
+    }
+    else if (startTime) {
+        // Only start_datetime - default to false, will be enabled when time matches
+        initialEnabled = false;
+    }
+    // Only end_datetime or no datetime - keep initialEnabled as is (false by default)
     const response = await announcementService.createAnnouncement({
         announcement_name,
         title,
         subheading,
         shopify_session_id,
-        enabled: true, // Always set to true on creation
+        enabled: initialEnabled,
         page_display,
         announcement_type,
         icon,
@@ -268,16 +290,38 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
     const now = new Date();
     const nowTimestamp = now.getTime();
     let response = await announcementService.getAllAnnouncement(filter);
-    // Check and update expired announcements
+    // Check and update announcements based on datetime
     for (const announcement of response) {
-        if (announcement.has_end_date && announcement.end_datetime) {
-            const endTimestamp = new Date(announcement.end_datetime).getTime();
-            if (nowTimestamp > endTimestamp && announcement.enabled) {
-                await announcementService.updateEnabledStatus(announcement._id.toString(), false);
+        const startDate = announcement.start_datetime
+            ? new Date(announcement.start_datetime).getTime()
+            : null;
+        const endDate = announcement.end_datetime
+            ? new Date(announcement.end_datetime).getTime()
+            : null;
+        let targetEnabled = announcement.enabled;
+        if (endDate && !startDate) {
+            // If only end_datetime is passed, disable
+            targetEnabled = false;
+        }
+        else if (endDate && startDate) {
+            if (endDate <= startDate) {
+                targetEnabled = false;
+            }
+            else if (nowTimestamp >= startDate && nowTimestamp < endDate) {
+                targetEnabled = true;
+            }
+            else {
+                targetEnabled = false;
             }
         }
+        else if (startDate) {
+            targetEnabled = nowTimestamp >= startDate;
+        }
+        if (targetEnabled !== announcement.enabled) {
+            await announcementService.updateEnabledStatus(announcement._id.toString(), targetEnabled);
+            announcement.enabled = targetEnabled;
+        }
     }
-    // Filter by start_datetime only (don't hide expired ones - they show as enabled:false)
     response = response.filter((announcement) => {
         const start = announcement.start_datetime
             ? new Date(announcement.start_datetime).getTime()
@@ -330,25 +374,6 @@ export const listAnnouncement = asyncHandler(async (req, res) => {
         filter.sortOrder = sortOrder;
     }
     let response = await announcementService.getAllAnnouncement(filter);
-    const now = new Date();
-    const nowTimestamp = now.getTime();
-    // Check and update expired announcements
-    for (const announcement of response) {
-        if (announcement.has_end_date && announcement.end_datetime) {
-            const endTimestamp = new Date(announcement.end_datetime).getTime();
-            if (nowTimestamp > endTimestamp && announcement.enabled) {
-                await announcementService.updateEnabledStatus(announcement._id.toString(), false);
-            }
-        }
-    }
-    // Filter by start_datetime only (don't hide expired ones - they show as enabled:false)
-    response = response.filter((announcement) => {
-        const start = announcement.start_datetime
-            ? new Date(announcement.start_datetime).getTime()
-            : null;
-        const isValidStart = !start || nowTimestamp >= start;
-        return isValidStart;
-    });
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)
