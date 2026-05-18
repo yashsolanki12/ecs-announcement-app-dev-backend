@@ -144,7 +144,7 @@ export const createAnnouncement = asyncHandler(
       }
     }
 
-// Calculate initial enabled status
+    // Calculate initial enabled status
     let initialEnabled = enabled !== undefined ? enabled : false;
     const now = new Date();
     const nowTimestamp = now.getTime();
@@ -152,8 +152,12 @@ export const createAnnouncement = asyncHandler(
     const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
     const offsetDiff = assumedInputOffset + currentOffset;
 
-    const startTime = start_datetime ? new Date(start_datetime).getTime() - offsetDiff * 60000 : null;
-    const endTime = end_datetime ? new Date(end_datetime).getTime() - offsetDiff * 60000 : null;
+    const startTime = start_datetime
+      ? new Date(start_datetime).getTime() - offsetDiff * 60000
+      : null;
+    const endTime = end_datetime
+      ? new Date(end_datetime).getTime() - offsetDiff * 60000
+      : null;
 
     if (endTime && startTime) {
       // Both start and end datetime
@@ -437,22 +441,16 @@ export const publicListAnnouncement = asyncHandler(
       filter.sortOrder = sortOrder;
     }
 
-   
-
     let response = await announcementService.getAllAnnouncement(filter);
 
     // Check and update announcements based on datetime
-    // Datetimes are stored in local time format (YYYY-MM-DDTHH:MM)
-    // We need to compare them properly accounting for timezone differences
     const now = new Date();
     const nowTimestamp = now.getTime();
+    const currentOffset = now.getTimezoneOffset();
+    const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
+    const offsetDiff = assumedInputOffset + currentOffset;
 
     for (const announcement of response) {
-      // Get timezone offset in minutes for current time
-      const currentOffset = now.getTimezoneOffset();
-
-      // Parse the datetime - it was entered in user's timezone
-      // new Date() interprets it as local to the server
       let startDate = announcement.start_datetime
         ? new Date(announcement.start_datetime).getTime()
         : null;
@@ -460,21 +458,12 @@ export const publicListAnnouncement = asyncHandler(
         ? new Date(announcement.end_datetime).getTime()
         : null;
 
-      // Adjust for timezone difference between user input and server
-      // If user entered 17:35 in +05:30, server in UTC would see it as 17:35 UTC
-      // But it should be 12:05 UTC (17:35 - 5:30)
-      const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
-      const offsetDiff = assumedInputOffset + currentOffset; // difference in minutes
-
       if (startDate) {
         startDate = startDate - offsetDiff * 60000;
       }
       if (endDate) {
         endDate = endDate - offsetDiff * 60000;
       }
-
-      console.log(`🕐 Checking "${announcement.title}":`);
-      console.log(`   start: ${startDate}, end: ${endDate}, now: ${nowTimestamp}`);
 
       let targetEnabled = announcement.enabled;
 
@@ -492,8 +481,6 @@ export const publicListAnnouncement = asyncHandler(
         targetEnabled = nowTimestamp >= startDate;
       }
 
-      console.log(`   targetEnabled: ${targetEnabled}`);
-
       if (targetEnabled !== announcement.enabled) {
         await announcementService.updateEnabledStatus(
           announcement._id.toString(),
@@ -502,21 +489,6 @@ export const publicListAnnouncement = asyncHandler(
         announcement.enabled = targetEnabled;
       }
     }
-    response = response.filter((announcement) => {
-      const start = announcement.start_datetime
-        ? new Date(announcement.start_datetime).getTime()
-        : null;
-      const isValidStart = !start || nowTimestamp >= start;
-
-      console.log(`📅 DateTime Check for "${announcement.title}":`);
-      console.log(`   start_datetime in DB: ${announcement.start_datetime}`);
-      console.log(`   Parsed start timestamp: ${start}`);
-      console.log(`   Current timestamp: ${nowTimestamp}`);
-      console.log(`   Current date: ${new Date().toISOString()}`);
-      console.log(`   isValidStart: ${isValidStart}`);
-
-      return isValidStart;
-    });
 
     if (!response || response.length === 0) {
       return res
