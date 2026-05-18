@@ -78,7 +78,9 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
     // Calculate initial enabled status
     let initialEnabled = enabled !== undefined ? enabled : false;
     const now = new Date().getTime();
-    const startTime = start_datetime ? new Date(start_datetime).getTime() : null;
+    const startTime = start_datetime
+        ? new Date(start_datetime).getTime()
+        : null;
     const endTime = end_datetime ? new Date(end_datetime).getTime() : null;
     if (endTime && startTime) {
         // Both start and end datetime
@@ -298,9 +300,10 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
         const endDate = announcement.end_datetime
             ? new Date(announcement.end_datetime).getTime()
             : null;
+        console.log(`🕐 Checking "${announcement.title}":`);
+        console.log(`   start: ${startDate}, end: ${endDate}, now: ${nowTimestamp}`);
         let targetEnabled = announcement.enabled;
         if (endDate && !startDate) {
-            // If only end_datetime is passed, disable
             targetEnabled = false;
         }
         else if (endDate && startDate) {
@@ -317,6 +320,7 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
         else if (startDate) {
             targetEnabled = nowTimestamp >= startDate;
         }
+        console.log(`   targetEnabled: ${targetEnabled}`);
         if (targetEnabled !== announcement.enabled) {
             await announcementService.updateEnabledStatus(announcement._id.toString(), targetEnabled);
             announcement.enabled = targetEnabled;
@@ -374,6 +378,39 @@ export const listAnnouncement = asyncHandler(async (req, res) => {
         filter.sortOrder = sortOrder;
     }
     let response = await announcementService.getAllAnnouncement(filter);
+    // Check and update announcements based on datetime
+    const now = new Date();
+    const nowTimestamp = now.getTime();
+    for (const announcement of response) {
+        const startDate = announcement.start_datetime
+            ? new Date(announcement.start_datetime).getTime()
+            : null;
+        const endDate = announcement.end_datetime
+            ? new Date(announcement.end_datetime).getTime()
+            : null;
+        let targetEnabled = announcement.enabled;
+        if (endDate && !startDate) {
+            targetEnabled = false;
+        }
+        else if (endDate && startDate) {
+            if (endDate <= startDate) {
+                targetEnabled = false;
+            }
+            else if (nowTimestamp >= startDate && nowTimestamp < endDate) {
+                targetEnabled = true;
+            }
+            else {
+                targetEnabled = false;
+            }
+        }
+        else if (startDate) {
+            targetEnabled = nowTimestamp >= startDate;
+        }
+        if (targetEnabled !== announcement.enabled) {
+            await announcementService.updateEnabledStatus(announcement._id.toString(), targetEnabled);
+            announcement.enabled = targetEnabled;
+        }
+    }
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)
