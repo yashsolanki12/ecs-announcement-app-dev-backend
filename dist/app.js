@@ -2,7 +2,6 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import crypto from "crypto";
-import mongoose from "mongoose";
 import cron from "node-cron";
 import announcementRoutes from "./router/announcement.routes.js";
 import shopifyAuthRoutes from "./router/shopify-auth.routes.js";
@@ -15,6 +14,7 @@ import { isAllowedOrigin } from "./utils/allowed-origin.js";
 import { uninstallCleanup } from "./controllers/announcement.js";
 import { StatusCode } from "./utils/status-code.js";
 import { ApiResponse } from "./utils/api-response.js";
+import { AnnouncementNotify } from "./models/announcement.js";
 const app = express();
 dotenv.config({ path: [".env"] });
 app.get("/", (_req, res) => {
@@ -160,19 +160,13 @@ cron.schedule("* * * * *", async () => {
     try {
         const now = new Date().getTime();
         console.log("⏰ Running announcement scheduler:", new Date());
-        const collection = mongoose.connection.collection("announcementnotifies");
-        // Fetch announcements that have a start_datetime or end_datetime
-        const announcements = await collection
-            .find({
+        // Use the AnnouncementNotify model instead of direct collection access
+        const announcements = await AnnouncementNotify.find({
             $or: [
                 { enabled: false, start_datetime: { $exists: true, $ne: "" } },
-                {
-                    enabled: true,
-                    end_datetime: { $exists: true, $ne: "" },
-                },
+                { enabled: true, end_datetime: { $exists: true, $ne: "" } },
             ],
-        })
-            .toArray();
+        });
         for (const ann of announcements) {
             const currentOffset = new Date().getTimezoneOffset();
             const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
@@ -202,7 +196,7 @@ cron.schedule("* * * * *", async () => {
                 shouldEnable = now >= startTime;
             }
             if (shouldEnable !== ann.enabled) {
-                await collection.updateOne({ _id: ann._id }, { $set: { enabled: shouldEnable } });
+                await AnnouncementNotify.updateOne({ _id: ann._id }, { $set: { enabled: shouldEnable } });
                 console.log(`✅ Updated announcement ${ann._id} enabled: ${shouldEnable}`);
             }
         }
