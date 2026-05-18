@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import cron from "node-cron";
 import announcementRoutes from "./router/announcement.routes.js";
 import shopifyAuthRoutes from "./router/shopify-auth.routes.js";
 import storeMetricsRoutes from "./router/store-metrics.routes.js";
@@ -183,34 +184,78 @@ app.use("/api/announcement", announcementRoutes);
 app.use("/api/store-metrics", storeMetricsRoutes);
 
 // Cron job to disable announcements when end_datetime passes
-const checkAndDisableExpiredAnnouncements = async () => {
+/**
+ ┌────────────── minute (0 - 59)
+│ ┌──────────── hour (0 - 23)
+│ │ ┌────────── day of the month (1 - 31)
+│ │ │ ┌──────── month (1 - 12)
+│ │ │ │ ┌────── day of the week (0 - 7) (0 or 7 is Sunday)
+│ │ │ │ │
+* * * * *
+ */
+// Every minute
+cron.schedule("* * * * *", async () => {
   try {
-    const now = new Date();
-    const result = await mongoose.connection
-      .collection("announcement_notifies")
-      .updateMany(
-        {
-          has_end_date: true,
-          enabled: true,
-          $and: [
-            { end_datetime: { $exists: true, $ne: "" } },
-            { end_datetime: { $lt: now.toISOString() } },
-          ],
-        },
-        { $set: { enabled: false } },
-      );
-    if (result.modifiedCount > 0) {
-      console.log(
-        `[Cron] Disabled ${result.modifiedCount} expired announcement(s)`,
-      );
-    }
-  } catch (error) {
-    console.error("[Cron] Error disabling expired announcements:", error);
-  }
-};
+    const now = new Date().getTime();
+    console.log("⏰ Running announcement scheduler:", new Date());
 
-// Run every minute
-setInterval(checkAndDisableExpiredAnnouncements, 60 * 1000);
+    const collection = mongoose.connection.collection("announcementnotifies");
+
+    // Fetch announcements that have a start_datetime or end_datetime
+    const announcements = await collection
+      .find({
+        $or: [
+          { enabled: false, start_datetime: { $exists: true, $ne: "" } },
+          {
+            enabled: true,
+            end_datetime: { $exists: true, $ne: "" },
+          },
+        ],
+      })
+      .toArray();
+
+    for (const ann of announcements) {
+      const startTime = ann.start_datetime
+        ? new Date(ann.start_datetime).getTime()
+        : null;
+      const endTime =
+        ann.end_datetime
+          ? new Date(ann.end_datetime).getTime()
+          : null;
+
+      let shouldEnable = ann.enabled;
+
+      if (endTime && !startTime) {
+        // If only end_datetime is passed, disable
+        shouldEnable = false;
+      } else if (endTime && startTime) {
+        if (endTime <= startTime) {
+          shouldEnable = false;
+        } else if (now >= startTime && now < endTime) {
+          shouldEnable = true;
+        } else {
+          shouldEnable = false;
+        }
+      } else if (startTime) {
+        shouldEnable = now >= startTime;
+      }
+
+      if (shouldEnable !== ann.enabled) {
+        await collection.updateOne(
+          { _id: ann._id },
+          { $set: { enabled: shouldEnable } },
+        );
+        console.log(
+          `✅ Updated announcement ${ann._id} enabled: ${shouldEnable}`,
+        );
+      }
+    }
+
+    console.log("✅ Announcement scheduler completed");
+  } catch (error) {
+    console.error("❌ Cron Error:", error);
+  }
+});
 
 // Routes for shopify authentication
 app.use("/api/shopify", shopifyAuthRoutes);
