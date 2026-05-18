@@ -77,17 +77,19 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
     }
     // Calculate initial enabled status
     let initialEnabled = enabled !== undefined ? enabled : false;
-    const now = new Date().getTime();
-    const startTime = start_datetime
-        ? new Date(start_datetime).getTime()
-        : null;
-    const endTime = end_datetime ? new Date(end_datetime).getTime() : null;
+    const now = new Date();
+    const nowTimestamp = now.getTime();
+    const currentOffset = now.getTimezoneOffset();
+    const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
+    const offsetDiff = assumedInputOffset + currentOffset;
+    const startTime = start_datetime ? new Date(start_datetime).getTime() - offsetDiff * 60000 : null;
+    const endTime = end_datetime ? new Date(end_datetime).getTime() - offsetDiff * 60000 : null;
     if (endTime && startTime) {
         // Both start and end datetime
         if (endTime <= startTime) {
             initialEnabled = false;
         }
-        else if (now >= startTime && now < endTime) {
+        else if (nowTimestamp >= startTime && nowTimestamp < endTime) {
             initialEnabled = true;
         }
         else {
@@ -289,17 +291,34 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
     if (sortOrder === "desc" || sortOrder === "asc") {
         filter.sortOrder = sortOrder;
     }
-    const now = new Date();
-    const nowTimestamp = now.getTime();
     let response = await announcementService.getAllAnnouncement(filter);
     // Check and update announcements based on datetime
+    // Datetimes are stored in local time format (YYYY-MM-DDTHH:MM)
+    // We need to compare them properly accounting for timezone differences
+    const now = new Date();
+    const nowTimestamp = now.getTime();
     for (const announcement of response) {
-        const startDate = announcement.start_datetime
+        // Get timezone offset in minutes for current time
+        const currentOffset = now.getTimezoneOffset();
+        // Parse the datetime - it was entered in user's timezone
+        // new Date() interprets it as local to the server
+        let startDate = announcement.start_datetime
             ? new Date(announcement.start_datetime).getTime()
             : null;
-        const endDate = announcement.end_datetime
+        let endDate = announcement.end_datetime
             ? new Date(announcement.end_datetime).getTime()
             : null;
+        // Adjust for timezone difference between user input and server
+        // If user entered 17:35 in +05:30, server in UTC would see it as 17:35 UTC
+        // But it should be 12:05 UTC (17:35 - 5:30)
+        const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
+        const offsetDiff = assumedInputOffset + currentOffset; // difference in minutes
+        if (startDate) {
+            startDate = startDate - offsetDiff * 60000;
+        }
+        if (endDate) {
+            endDate = endDate - offsetDiff * 60000;
+        }
         console.log(`🕐 Checking "${announcement.title}":`);
         console.log(`   start: ${startDate}, end: ${endDate}, now: ${nowTimestamp}`);
         let targetEnabled = announcement.enabled;
@@ -381,13 +400,22 @@ export const listAnnouncement = asyncHandler(async (req, res) => {
     // Check and update announcements based on datetime
     const now = new Date();
     const nowTimestamp = now.getTime();
+    const currentOffset = now.getTimezoneOffset();
+    const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
+    const offsetDiff = assumedInputOffset + currentOffset;
     for (const announcement of response) {
-        const startDate = announcement.start_datetime
+        let startDate = announcement.start_datetime
             ? new Date(announcement.start_datetime).getTime()
             : null;
-        const endDate = announcement.end_datetime
+        let endDate = announcement.end_datetime
             ? new Date(announcement.end_datetime).getTime()
             : null;
+        if (startDate) {
+            startDate = startDate - offsetDiff * 60000;
+        }
+        if (endDate) {
+            endDate = endDate - offsetDiff * 60000;
+        }
         let targetEnabled = announcement.enabled;
         if (endDate && !startDate) {
             targetEnabled = false;

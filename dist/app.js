@@ -174,15 +174,17 @@ cron.schedule("* * * * *", async () => {
         })
             .toArray();
         for (const ann of announcements) {
-            const startTime = ann.start_datetime
-                ? new Date(ann.start_datetime).getTime()
+            const currentOffset = new Date().getTimezoneOffset();
+            const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
+            const offsetDiff = assumedInputOffset + currentOffset;
+            let startTime = ann.start_datetime
+                ? new Date(ann.start_datetime).getTime() - offsetDiff * 60000
                 : null;
-            const endTime = ann.end_datetime
-                ? new Date(ann.end_datetime).getTime()
+            let endTime = ann.end_datetime
+                ? new Date(ann.end_datetime).getTime() - offsetDiff * 60000
                 : null;
             let shouldEnable = ann.enabled;
             if (endTime && !startTime) {
-                // If only end_datetime is passed, disable
                 shouldEnable = false;
             }
             else if (endTime && startTime) {
