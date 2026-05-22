@@ -227,21 +227,22 @@ export const updateAnnouncement = async (
   });
 };
 
-// Toggle enabled status
+// Toggle enabled status (flip: true→false, false→true)
 export const toggleEnabled = async (
   id: string,
 ): Promise<Announcement | null> => {
   const item = await AnnouncementNotify.findById(id);
   if (!item) return null;
 
+  const newEnabled = !item.enabled;
   return await AnnouncementNotify.findByIdAndUpdate(
     id,
-    { enabled: !item.enabled },
-    { new: true },
+    { enabled: newEnabled },
+    { returnDocument: "after" },
   );
 };
 
-// Update enabled status only
+// Update enabled status only (used by cron and list / detail for auto-enable)
 export const updateEnabledStatus = async (
   id: string,
   enabled: boolean,
@@ -249,7 +250,7 @@ export const updateEnabledStatus = async (
   return await AnnouncementNotify.findByIdAndUpdate(
     id,
     { enabled },
-    { new: true },
+    { returnDocument: "after" },
   );
 };
 
