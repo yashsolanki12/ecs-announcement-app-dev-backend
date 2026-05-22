@@ -296,48 +296,6 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
         filter.sortOrder = sortOrder;
     }
     let response = await announcementService.getAllAnnouncement(filter);
-    // Check and update announcements based on datetime
-    const now = new Date();
-    const nowTimestamp = now.getTime();
-    const currentOffset = now.getTimezoneOffset();
-    const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
-    const offsetDiff = assumedInputOffset + currentOffset;
-    for (const announcement of response) {
-        let startDate = announcement.start_datetime
-            ? new Date(announcement.start_datetime).getTime()
-            : null;
-        let endDate = announcement.end_datetime
-            ? new Date(announcement.end_datetime).getTime()
-            : null;
-        if (startDate) {
-            startDate = startDate - offsetDiff * 60000;
-        }
-        if (endDate) {
-            endDate = endDate - offsetDiff * 60000;
-        }
-        let targetEnabled = announcement.enabled;
-        if (endDate && !startDate) {
-            targetEnabled = false;
-        }
-        else if (endDate && startDate) {
-            if (endDate <= startDate) {
-                targetEnabled = false;
-            }
-            else if (nowTimestamp >= startDate && nowTimestamp < endDate) {
-                targetEnabled = true;
-            }
-            else {
-                targetEnabled = false;
-            }
-        }
-        else if (startDate) {
-            targetEnabled = nowTimestamp >= startDate;
-        }
-        if (targetEnabled !== announcement.enabled) {
-            await announcementService.updateEnabledStatus(announcement._id.toString(), targetEnabled);
-            announcement.enabled = targetEnabled;
-        }
-    }
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)
@@ -377,48 +335,6 @@ export const listAnnouncement = asyncHandler(async (req, res) => {
         filter.sortOrder = sortOrder;
     }
     let response = await announcementService.getAllAnnouncement(filter);
-    // Check and update announcements based on datetime
-    const now = new Date();
-    const nowTimestamp = now.getTime();
-    const currentOffset = now.getTimezoneOffset();
-    const assumedInputOffset = 5.5 * 60; // User's offset in minutes (+05:30)
-    const offsetDiff = assumedInputOffset + currentOffset;
-    for (const announcement of response) {
-        let startDate = announcement.start_datetime
-            ? new Date(announcement.start_datetime).getTime()
-            : null;
-        let endDate = announcement.end_datetime
-            ? new Date(announcement.end_datetime).getTime()
-            : null;
-        if (startDate) {
-            startDate = startDate - offsetDiff * 60000;
-        }
-        if (endDate) {
-            endDate = endDate - offsetDiff * 60000;
-        }
-        let targetEnabled = announcement.enabled;
-        if (endDate && !startDate) {
-            targetEnabled = false;
-        }
-        else if (endDate && startDate) {
-            if (endDate <= startDate) {
-                targetEnabled = false;
-            }
-            else if (nowTimestamp >= startDate && nowTimestamp < endDate) {
-                targetEnabled = true;
-            }
-            else {
-                targetEnabled = false;
-            }
-        }
-        else if (startDate) {
-            targetEnabled = nowTimestamp >= startDate;
-        }
-        if (targetEnabled !== announcement.enabled) {
-            await announcementService.updateEnabledStatus(announcement._id.toString(), targetEnabled);
-            announcement.enabled = targetEnabled;
-        }
-    }
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)
