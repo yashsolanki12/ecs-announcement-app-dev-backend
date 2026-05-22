@@ -124,16 +124,17 @@ export const updateAnnouncement = async (id, data) => {
         runValidators: true,
     });
 };
-// Toggle enabled status
+// Toggle enabled status (flip: true→false, false→true)
 export const toggleEnabled = async (id) => {
     const item = await AnnouncementNotify.findById(id);
     if (!item)
         return null;
-    return await AnnouncementNotify.findByIdAndUpdate(id, { enabled: !item.enabled }, { new: true });
+    const newEnabled = !item.enabled;
+    return await AnnouncementNotify.findByIdAndUpdate(id, { enabled: newEnabled }, { returnDocument: "after" });
 };
-// Update enabled status only
+// Update enabled status only (used by cron and list / detail for auto-enable)
 export const updateEnabledStatus = async (id, enabled) => {
-    return await AnnouncementNotify.findByIdAndUpdate(id, { enabled }, { new: true });
+    return await AnnouncementNotify.findByIdAndUpdate(id, { enabled }, { returnDocument: "after" });
 };
 // Delete announcement
 export const deleteAnnouncement = async (id) => {
