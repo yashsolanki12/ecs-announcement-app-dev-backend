@@ -3,10 +3,11 @@ import { StatusCode } from "../utils/status-code.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { AppError } from "../utils/app-error.js";
-import * as announcementService from "../services/announcement.js";
+import { AnnouncementNotify } from "../models/announcement.js";
 import shopifySession from "../models/shopify-sessions.js";
 import mongoose from "mongoose";
-import { AnnouncementNotify } from "../models/announcement.js";
+import * as storeMetricsService from "../services/store-metrics.js"
+import * as announcementService from "../services/announcement.js";
 
 // Get current shopify_session_id
 export const getCurrentShopifySessionId = asyncHandler(
@@ -86,63 +87,104 @@ export const createAnnouncement = asyncHandler(
         StatusCode.BAD_REQUEST,
       );
     }
+    // Get shop domain header
+    const shopDomain = res.req.headers["x-shopify-shop-domain"] as string;
+    console.log("📱 Get all usp slider - Shop Domain", shopDomain);
+
+    if (!shopDomain) {
+      throw new AppError("Missing shop domain header.", StatusCode.BAD_REQUEST);
+    }
+
+    // Find the session for this shop
+    const sessionDoc = await mongoose.connection
+      .collection("shopify_sessions")
+      .findOne({ shop: shopDomain });
+
+    console.log("Session found for all USP Bar 🔎", sessionDoc ? "Yes" : "No");
+
+    if (!sessionDoc || !sessionDoc._id) {
+      throw new AppError("Session not found.", StatusCode.NOT_FOUND);
+    }
+
+    const syncMetricsPlan = await storeMetricsService.getStoreMetrics(shopDomain);
+
+    const listResponse = await announcementService.getAllAnnouncement({
+      shopify_session_id: sessionDoc._id,
+    });
+    const listApiLength = listResponse.map((i: any) => i).length;
+    if (syncMetricsPlan?.plan_name === "Free" && listApiLength >= 3) {
+      throw new AppError(
+        `Maximum limit of 3 data entries reached for the '${syncMetricsPlan?.plan_name}' plan.`,
+        StatusCode.FORBIDDEN,
+      );
+    } else if (syncMetricsPlan?.plan_name === "Plan 1" && listApiLength >= 6) {
+      throw new AppError(
+        `Maximum limit of 6 data entries reached for the '${syncMetricsPlan?.plan_name}' plan`,
+        StatusCode.FORBIDDEN,
+      );
+    } else if (syncMetricsPlan?.plan_name === "Plan 2" && listApiLength >= 10) {
+      throw new AppError(
+        `Maximum limit of 10 data entries reached for that '${syncMetricsPlan?.plan_name}' plan`,
+        StatusCode.FORBIDDEN,
+      );
+    }
 
     // Free Plan Limit Validation (Max 10)
-    const count = await AnnouncementNotify.countDocuments({
-      shopify_session_id,
-    });
-    if (count >= 10) {
-      let isPaid = false;
-      try {
-        const sessionDoc = await mongoose.connection
-          .collection("shopify_sessions")
-          .findOne({ _id: new mongoose.Types.ObjectId(shopify_session_id) });
+    // const count = await AnnouncementNotify.countDocuments({
+    //   shopify_session_id,
+    // });
+    // if (count >= 10) {
+    //   let isPaid = false;
+    //   try {
+    //     const sessionDoc = await mongoose.connection
+    //       .collection("shopify_sessions")
+    //       .findOne({ _id: new mongoose.Types.ObjectId(shopify_session_id) });
 
-        if (sessionDoc && sessionDoc.shop && sessionDoc.accessToken) {
-          const graphqlQuery = `
-            query {
-              app {
-                installation {
-                  activeSubscriptions {
-                    status
-                  }
-                }
-              }
-            }
-          `;
+    //     if (sessionDoc && sessionDoc.shop && sessionDoc.accessToken) {
+    //       const graphqlQuery = `
+    //         query {
+    //           app {
+    //             installation {
+    //               activeSubscriptions {
+    //                 status
+    //               }
+    //             }
+    //           }
+    //         }
+    //       `;
 
-          const graphqlResponse = await fetch(
-            `https://${sessionDoc.shop}/admin/api/2026-04/graphql.json`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Shopify-Access-Token": sessionDoc.accessToken,
-              },
-              body: JSON.stringify({ query: graphqlQuery }),
-            },
-          );
+    //       const graphqlResponse = await fetch(
+    //         `https://${sessionDoc.shop}/admin/api/2026-04/graphql.json`,
+    //         {
+    //           method: "POST",
+    //           headers: {
+    //             "Content-Type": "application/json",
+    //             "X-Shopify-Access-Token": sessionDoc.accessToken,
+    //           },
+    //           body: JSON.stringify({ query: graphqlQuery }),
+    //         },
+    //       );
 
-          if (graphqlResponse.ok) {
-            const data: any = await graphqlResponse.json();
-            const subscriptions =
-              data?.data?.app?.installation?.activeSubscriptions || [];
-            if (subscriptions.some((sub: any) => sub.status === "ACTIVE")) {
-              isPaid = true;
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error checking subscription limit:", error);
-      }
+    //       if (graphqlResponse.ok) {
+    //         const data: any = await graphqlResponse.json();
+    //         const subscriptions =
+    //           data?.data?.app?.installation?.activeSubscriptions || [];
+    //         if (subscriptions.some((sub: any) => sub.status === "ACTIVE")) {
+    //           isPaid = true;
+    //         }
+    //       }
+    //     }
+    //   } catch (error) {
+    //     console.error("Error checking subscription limit:", error);
+    //   }
 
-      if (!isPaid) {
-        throw new AppError(
-          "Limit of 10 Announcement reached for the Free plan.",
-          StatusCode.FORBIDDEN,
-        );
-      }
-    }
+    //   if (!isPaid) {
+    //     throw new AppError(
+    //       "Limit of 10 Announcement reached for the Free plan.",
+    //       StatusCode.FORBIDDEN,
+    //     );
+    //   }
+    // }
 
     // Calculate initial enabled status
     let initialEnabled = enabled !== undefined ? enabled : false;
@@ -225,7 +267,7 @@ export const createAnnouncement = asyncHandler(
           new ApiResponse(true, "Announcement created successfully.", response),
         );
     }
-  },
+  }
 );
 
 // Update
@@ -408,7 +450,7 @@ export const publicListAnnouncement = asyncHandler(
     }
     let viewLimit = 1000;
     if (metrics.plan_name.toLowerCase().includes("plan 1")) {
-      viewLimit = 3000;
+      viewLimit = 2500;
     } else if (metrics.plan_name.toLowerCase().includes("plan 2")) {
       viewLimit = -1; // unlimited
     }
@@ -618,25 +660,68 @@ export const duplicateAnnouncement = asyncHandler(
         StatusCode.BAD_REQUEST,
       );
     }
-    const shopify_session_id = originalItem.shopify_session_id.toString();
+    // Get shop domain header
+    const shopDomain = res.req.headers["x-shopify-shop-domain"] as string;
+    console.log("📱 Get all usp slider - Shop Domain", shopDomain);
 
-    // Limit check - block duplicates if already at 10 or more bars (for ALL users)
-    const count = await AnnouncementNotify.countDocuments({
-      shopify_session_id: new mongoose.Types.ObjectId(shopify_session_id),
+    if (!shopDomain) {
+      throw new AppError("Missing shop domain header.", StatusCode.BAD_REQUEST);
+    }
+
+    // Find the session for this shop
+    const sessionDoc = await mongoose.connection
+      .collection("shopify_sessions")
+      .findOne({ shop: shopDomain });
+
+    console.log("Session found for all USP Bar 🔎", sessionDoc ? "Yes" : "No");
+
+    if (!sessionDoc || !sessionDoc._id) {
+      throw new AppError("Session not found.", StatusCode.NOT_FOUND);
+    }
+
+    const syncMetricsPlan =
+      await storeMetricsService.getStoreMetrics(shopDomain);
+
+    const listResponse = await announcementService.getAllAnnouncement({
+      shopify_session_id: sessionDoc._id,
     });
-    console.log(
-      `🔍 Duplicate check: Current count is ${count} for session ${shopify_session_id}`,
-    );
-
-    if (count >= 10) {
-      console.log(
-        `🚫 BLOCKING duplicate creation - limit of 10 announcement reached (current: ${count})`,
-      );
+    const listApiLength = listResponse.map((i: any) => i).length;
+    if (syncMetricsPlan?.plan_name === "Free" && listApiLength >= 3) {
       throw new AppError(
-        "Limit of 10 announcement reached. You cannot create more than 10 announcement.",
+        `Maximum limit of 3 data entries reached for the '${syncMetricsPlan?.plan_name}' plan.`,
+        StatusCode.FORBIDDEN,
+      );
+    } else if (syncMetricsPlan?.plan_name === "Plan 1" && listApiLength >= 6) {
+      throw new AppError(
+        `Maximum limit of 6 data entries reached for the '${syncMetricsPlan?.plan_name}' plan`,
+        StatusCode.FORBIDDEN,
+      );
+    } else if (syncMetricsPlan?.plan_name === "Plan 2" && listApiLength >= 10) {
+      throw new AppError(
+        `Maximum limit of 10 data entries reached for that '${syncMetricsPlan?.plan_name}' plan`,
         StatusCode.FORBIDDEN,
       );
     }
+
+    // const shopify_session_id = originalItem.shopify_session_id.toString();
+
+    // // Limit check - block duplicates if already at 10 or more bars (for ALL users)
+    // const count = await AnnouncementNotify.countDocuments({
+    //   shopify_session_id: new mongoose.Types.ObjectId(shopify_session_id),
+    // });
+    // console.log(
+    //   `🔍 Duplicate check: Current count is ${count} for session ${shopify_session_id}`,
+    // );
+
+    // if (count >= 10) {
+    //   console.log(
+    //     `🚫 BLOCKING duplicate creation - limit of 10 announcement reached (current: ${count})`,
+    //   );
+    //   throw new AppError(
+    //     "Limit of 10 announcement reached. You cannot create more than 10 announcement.",
+    //     StatusCode.FORBIDDEN,
+    //   );
+    // }
 
     // Remove the _id field to allow MongoDB to generate a new one
     delete newItemData._id;
@@ -658,7 +743,7 @@ export const duplicateAnnouncement = asyncHandler(
           duplicatedItem,
         ),
       );
-  },
+  }
 );
 
 // Bulk delete USP bars
