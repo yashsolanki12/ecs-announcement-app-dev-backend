@@ -300,8 +300,8 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
     }
     let response = await announcementService.getAllAnnouncement(filter);
     const increment = Math.floor(Math.random() * 8) + 1; // plan view number
-    const checkLength = response.map((i) => i).length;
-    if (checkLength > 0) {
+    const checkLength = response.map((i) => i).length > 0;
+    if (checkLength) {
         if (!metrics) {
             metrics = new StoreMetrics({
                 shop,
