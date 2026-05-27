@@ -56,7 +56,7 @@ export const syncStoreMetrics = asyncHandler(
     let limit = 1000;
     if (metrics.plan_name.toLowerCase().includes("plan 1")) {
       limit = 2500;
-    } else if (metrics.plan_name.toLowerCase().includes("plan 2")) {
+    } else if (metrics.plan_name.toLowerCase().includes("standard plan")) {
       limit = -1; // Unlimited
     } else {
       limit = 1000;

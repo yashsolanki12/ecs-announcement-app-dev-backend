@@ -6,7 +6,7 @@ import { AppError } from "../utils/app-error.js";
 import { AnnouncementNotify } from "../models/announcement.js";
 import shopifySession from "../models/shopify-sessions.js";
 import mongoose from "mongoose";
-import * as storeMetricsService from "../services/store-metrics.js"
+import * as storeMetricsService from "../services/store-metrics.js";
 import * as announcementService from "../services/announcement.js";
 
 // Get current shopify_session_id
@@ -106,7 +106,8 @@ export const createAnnouncement = asyncHandler(
       throw new AppError("Session not found.", StatusCode.NOT_FOUND);
     }
 
-    const syncMetricsPlan = await storeMetricsService.getStoreMetrics(shopDomain);
+    const syncMetricsPlan =
+      await storeMetricsService.getStoreMetrics(shopDomain);
 
     const listResponse = await announcementService.getAllAnnouncement({
       shopify_session_id: sessionDoc._id,
@@ -122,7 +123,10 @@ export const createAnnouncement = asyncHandler(
         `Maximum limit of 6 data entries reached for the '${syncMetricsPlan?.plan_name}' plan`,
         StatusCode.FORBIDDEN,
       );
-    } else if (syncMetricsPlan?.plan_name === "Plan 2" && listApiLength >= 10) {
+    } else if (
+      syncMetricsPlan?.plan_name === "Standard Plan" &&
+      listApiLength >= 10
+    ) {
       throw new AppError(
         `Maximum limit of 10 data entries reached for that '${syncMetricsPlan?.plan_name}' plan`,
         StatusCode.FORBIDDEN,
@@ -267,7 +271,7 @@ export const createAnnouncement = asyncHandler(
           new ApiResponse(true, "Announcement created successfully.", response),
         );
     }
-  }
+  },
 );
 
 // Update
@@ -429,47 +433,6 @@ export const publicListAnnouncement = asyncHandler(
           ),
         );
     }
-
-    const increment = Math.floor(Math.random() * 8) + 1; // plan view number
-    if (!metrics) {
-      metrics = new StoreMetrics({
-        shop,
-        view_count: increment,
-        last_reset_month: currentMonth,
-        plan_name: "",
-      });
-      await metrics.save();
-    } else {
-      if (metrics.last_reset_month !== currentMonth) {
-        metrics.view_count = increment;
-        metrics.last_reset_month = currentMonth;
-      } else {
-        metrics.view_count += increment;
-      }
-      await metrics.save();
-    }
-    let viewLimit = 1000;
-    if (metrics.plan_name.toLowerCase().includes("plan 1")) {
-      viewLimit = 2500;
-    } else if (metrics.plan_name.toLowerCase().includes("plan 2")) {
-      viewLimit = -1; // unlimited
-    }
-    if (viewLimit !== -1 && metrics.view_count > viewLimit) {
-      console.log(
-        `❌ View limit exceeded for shop ${shop}. Limit: ${viewLimit}, Views: ${metrics.view_count}`,
-      );
-
-      return res
-        .status(StatusCode.OK)
-        .json(
-          new ApiResponse(
-            true,
-            `You have reached the ${viewLimit} monthly view limit for ${metrics.plan_name} plan. Please upgrade your plan to continue.`,
-            [],
-          ),
-        );
-    }
-
     const filter: any = {
       shopify_session_id: sessionDoc._id,
     };
@@ -484,6 +447,51 @@ export const publicListAnnouncement = asyncHandler(
     }
 
     let response = await announcementService.getAllAnnouncement(filter);
+
+    const increment = Math.floor(Math.random() * 8) + 1; // plan view number
+    const checkLength = response.map((i) => i).length;
+    if (checkLength > 0) {
+      if (!metrics) {
+        metrics = new StoreMetrics({
+          shop,
+          view_count: increment,
+          last_reset_month: currentMonth,
+          plan_name: "",
+        });
+        await metrics.save();
+      } else {
+        if (metrics.last_reset_month !== currentMonth) {
+          metrics.view_count = increment;
+          metrics.last_reset_month = currentMonth;
+        } else {
+          metrics.view_count += increment;
+        }
+        await metrics.save();
+      }
+      let viewLimit = 1000;
+      if (metrics.plan_name.toLowerCase().includes("plan 1")) {
+        viewLimit = 2500;
+      } else if (metrics.plan_name.toLowerCase().includes("standard plan")) {
+        viewLimit = -1; // unlimited
+      }
+      if (viewLimit !== -1 && metrics.view_count > viewLimit) {
+        console.log(
+          `❌ View limit exceeded for shop ${shop}. Limit: ${viewLimit}, Views: ${metrics.view_count}`,
+        );
+
+        return res
+          .status(StatusCode.OK)
+          .json(
+            new ApiResponse(
+              true,
+              `You have reached the ${viewLimit} monthly view limit for ${metrics.plan_name} plan. Please upgrade your plan to continue.`,
+              [],
+            ),
+          );
+      }
+    }
+
+    // let response = await announcementService.getAllAnnouncement(filter);
 
     if (!response || response.length === 0) {
       return res
@@ -696,7 +704,10 @@ export const duplicateAnnouncement = asyncHandler(
         `Maximum limit of 6 data entries reached for the '${syncMetricsPlan?.plan_name}' plan`,
         StatusCode.FORBIDDEN,
       );
-    } else if (syncMetricsPlan?.plan_name === "Plan 2" && listApiLength >= 10) {
+    } else if (
+      syncMetricsPlan?.plan_name === "Standard Plan" &&
+      listApiLength >= 10
+    ) {
       throw new AppError(
         `Maximum limit of 10 data entries reached for that '${syncMetricsPlan?.plan_name}' plan`,
         StatusCode.FORBIDDEN,
@@ -743,7 +754,7 @@ export const duplicateAnnouncement = asyncHandler(
           duplicatedItem,
         ),
       );
-  }
+  },
 );
 
 // Bulk delete USP bars

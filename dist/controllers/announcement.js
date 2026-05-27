@@ -55,7 +55,8 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
     else if (syncMetricsPlan?.plan_name === "Plan 1" && listApiLength >= 6) {
         throw new AppError(`Maximum limit of 6 data entries reached for the '${syncMetricsPlan?.plan_name}' plan`, StatusCode.FORBIDDEN);
     }
-    else if (syncMetricsPlan?.plan_name === "Plan 2" && listApiLength >= 10) {
+    else if (syncMetricsPlan?.plan_name === "Standard Plan" &&
+        listApiLength >= 10) {
         throw new AppError(`Maximum limit of 10 data entries reached for that '${syncMetricsPlan?.plan_name}' plan`, StatusCode.FORBIDDEN);
     }
     // Free Plan Limit Validation (Max 10)
@@ -286,39 +287,6 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
             .status(StatusCode.OK)
             .json(new ApiResponse(true, "No active plan selected. Please select a plan to view content.", []));
     }
-    const increment = Math.floor(Math.random() * 8) + 1; // plan view number
-    if (!metrics) {
-        metrics = new StoreMetrics({
-            shop,
-            view_count: increment,
-            last_reset_month: currentMonth,
-            plan_name: "",
-        });
-        await metrics.save();
-    }
-    else {
-        if (metrics.last_reset_month !== currentMonth) {
-            metrics.view_count = increment;
-            metrics.last_reset_month = currentMonth;
-        }
-        else {
-            metrics.view_count += increment;
-        }
-        await metrics.save();
-    }
-    let viewLimit = 1000;
-    if (metrics.plan_name.toLowerCase().includes("plan 1")) {
-        viewLimit = 2500;
-    }
-    else if (metrics.plan_name.toLowerCase().includes("plan 2")) {
-        viewLimit = -1; // unlimited
-    }
-    if (viewLimit !== -1 && metrics.view_count > viewLimit) {
-        console.log(`❌ View limit exceeded for shop ${shop}. Limit: ${viewLimit}, Views: ${metrics.view_count}`);
-        return res
-            .status(StatusCode.OK)
-            .json(new ApiResponse(true, `You have reached the ${viewLimit} monthly view limit for ${metrics.plan_name} plan. Please upgrade your plan to continue.`, []));
-    }
     const filter = {
         shopify_session_id: sessionDoc._id,
     };
@@ -331,6 +299,43 @@ export const publicListAnnouncement = asyncHandler(async (req, res) => {
         filter.sortOrder = sortOrder;
     }
     let response = await announcementService.getAllAnnouncement(filter);
+    const increment = Math.floor(Math.random() * 8) + 1; // plan view number
+    const checkLength = response.map((i) => i).length;
+    if (checkLength > 0) {
+        if (!metrics) {
+            metrics = new StoreMetrics({
+                shop,
+                view_count: increment,
+                last_reset_month: currentMonth,
+                plan_name: "",
+            });
+            await metrics.save();
+        }
+        else {
+            if (metrics.last_reset_month !== currentMonth) {
+                metrics.view_count = increment;
+                metrics.last_reset_month = currentMonth;
+            }
+            else {
+                metrics.view_count += increment;
+            }
+            await metrics.save();
+        }
+        let viewLimit = 1000;
+        if (metrics.plan_name.toLowerCase().includes("plan 1")) {
+            viewLimit = 2500;
+        }
+        else if (metrics.plan_name.toLowerCase().includes("standard plan")) {
+            viewLimit = -1; // unlimited
+        }
+        if (viewLimit !== -1 && metrics.view_count > viewLimit) {
+            console.log(`❌ View limit exceeded for shop ${shop}. Limit: ${viewLimit}, Views: ${metrics.view_count}`);
+            return res
+                .status(StatusCode.OK)
+                .json(new ApiResponse(true, `You have reached the ${viewLimit} monthly view limit for ${metrics.plan_name} plan. Please upgrade your plan to continue.`, []));
+        }
+    }
+    // let response = await announcementService.getAllAnnouncement(filter);
     if (!response || response.length === 0) {
         return res
             .status(StatusCode.OK)
@@ -468,7 +473,8 @@ export const duplicateAnnouncement = asyncHandler(async (req, res) => {
     else if (syncMetricsPlan?.plan_name === "Plan 1" && listApiLength >= 6) {
         throw new AppError(`Maximum limit of 6 data entries reached for the '${syncMetricsPlan?.plan_name}' plan`, StatusCode.FORBIDDEN);
     }
-    else if (syncMetricsPlan?.plan_name === "Plan 2" && listApiLength >= 10) {
+    else if (syncMetricsPlan?.plan_name === "Standard Plan" &&
+        listApiLength >= 10) {
         throw new AppError(`Maximum limit of 10 data entries reached for that '${syncMetricsPlan?.plan_name}' plan`, StatusCode.FORBIDDEN);
     }
     // const shopify_session_id = originalItem.shopify_session_id.toString();
